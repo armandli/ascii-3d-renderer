@@ -184,10 +184,3 @@ showing the recommended extracted form when it aids clarity.
 
 ---
 
-## Final Step — Record Usage
-
-After the skill's primary task completes, run:
-
-```bash
-python3 ${PWD}/.claude/skills/skill-stat/scripts/record-stat.py "refactor-cpp"
-```

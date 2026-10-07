@@ -132,10 +132,3 @@ For complete API details and patterns, load on demand:
 - **Component widgets, containers, options, events, animation**: [references/component-api.md](references/component-api.md)
 - **Full working code examples**: [references/examples.md](references/examples.md)
 
-### Final Step — Record Usage
-
-Run after the skill's primary task completes:
-
-```bash
-python3 ${PWD}/.claude/skills/skill-stat/scripts/record-stat.py "ftxui-guide-cpp"
-```

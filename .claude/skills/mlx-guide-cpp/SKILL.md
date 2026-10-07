@@ -250,10 +250,3 @@ Summary:
 - MLX extensions: https://ml-explore.github.io/mlx/build/html/dev/extensions.html
 - Headers: /opt/homebrew/include/mlx/
 
-### Final Step — Record Usage
-
-Run after the skill's primary task completes:
-
-```bash
-python3 ${PWD}/.claude/skills/skill-stat/scripts/record-stat.py "mlx-guide-cpp"
-```
