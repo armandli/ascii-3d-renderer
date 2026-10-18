@@ -1,6 +1,10 @@
-#pragma once
+#ifndef VECTOR_H
+#define VECTOR_H
 
-// Row-vector convention: v' = v * M, as in the JS reference.
+// Column-vector convention: v' = M * v (the JS reference uses row vectors).
+// Left-handed view space: x right, y up, camera looks down +Z.
+// cross() is the standard formula; with clockwise front faces,
+// cross(v2 - v1, v3 - v1) points toward the viewer.
 // All angles are in radians.  Screen-space: x right, y down.
 // See docs/CONVENTIONS.md for the full list of decisions.
 
@@ -182,3 +186,5 @@ struct Vector4 {
 }
 
 } // namespace ascii3d
+
+#endif  // VECTOR_H

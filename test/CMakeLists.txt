@@ -29,12 +29,5 @@ target_include_directories(ascii3d_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(ascii3d_tests PRIVATE
     GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
-# Optional: enable AddressSanitizer + UBSanitizer for the test build.
-option(ASCII3D_SANITIZE "Enable ASan + UBSan in the test build" OFF)
-if(ASCII3D_SANITIZE)
-  target_compile_options(ascii3d_tests PRIVATE -fsanitize=address,undefined)
-  target_link_options(ascii3d_tests PRIVATE -fsanitize=address,undefined)
-endif()
-
 include(GoogleTest)
 gtest_discover_tests(ascii3d_tests)

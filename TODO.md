@@ -16,13 +16,13 @@ for another (for example, a wireframe rasterizer for the filled one).
    ▼
  [Model matrix]  Object::model_matrix()          model → world
    ▼
- [View matrix]   Camera::view_matrix()           world → view (camera at origin, looking -Z)
+ [View matrix]   Camera::view_matrix()           world → view (camera at origin, looking +Z)
    ▼
  [Face culling]  FaceCuller (optional)           drop back faces
    ▼
  [Lighting]      LightingModel                   view-space normal + light → intensity [0,1]
    ▼
- [Projection]    Projection::matrix()            view → clip (Vector4, w = -z_view)
+ [Projection]    Projection::matrix()            view → clip (Vector4, w = z_view)
    ▼
  [Clipping]      Clipper (optional)              near-plane clip, so w > 0 always holds
    ▼
@@ -48,24 +48,29 @@ separate, unit-testable module.
 
 ## 1. Conventions to decide first (write them in `docs/CONVENTIONS.md`)
 
-- [ ] **Vector convention.** The reference uses **row vectors**: `v' = v * M`, with translation in
-      row 3 (`m[3][0..2]`), and composes as `v * A * B` (A is applied first). **Recommendation:**
-      keep this convention so you can compare numbers against the JS code one to one. Document
-      it in `matrix.h`.
-- [ ] **Handedness / view space.** Right-handed, with the camera looking down **-Z** (OpenGL
-      style). The reference projection sets `w = -z_view`, so visible points have `z_view < 0`.
-- [ ] **Angles** are in radians everywhere except `Projection::fov_degrees`.
-- [ ] **Screen space.** `x` ∈ [0, width) goes right and `y` ∈ [0, height) goes down. Pixel
-      centers are at `(x + 0.5, y + 0.5)`. The reference samples at integer coordinates; choose
-      one approach and test it.
-- [ ] **Depth.** Smaller is closer. Clear value is `+∞`. The reference clears to `255`.
-- [ ] **Winding.** Counter-clockwise front faces in view space. The reference normal is
-      `(v3 - v2) × (v1 - v3)`, which is equivalent to `(v2 - v1) × (v3 - v1)` up to sign. Check
-      it against the cube OBJ.
-- [ ] **Terminal cell aspect.** Characters are about 2× taller than wide, so
+- [x] **Vector convention.** **Column vectors**: `v' = M * v`, with translation in column 3
+      (`m[0..2][3]`), and composes as `A * B * v` (B is applied first). Storage is row-major
+      (`m[row][col]`). The reference uses row vectors (`v * M`), so every reference matrix is the
+      **transpose** of ours. Document this in `matrix.h` and `vector.h`.
+- [x] **Handedness / view space.** **Left-handed** (Direct3D style): x right, y up, and the camera
+      looks down **+Z**, so visible points have `z_view > 0` and clip `w = z_view`. The reference
+      is right-handed with `w = -z_view`, so numbers do not match it one to one; compare rendered
+      frames, not matrices.
+- [x] **Angles** are in radians everywhere except `Projection::fov_degrees`.
+- [x] **Screen space.** `x` ∈ [0, width) goes right and `y` ∈ [0, height) goes down. Sample at
+      pixel centers `(x + 0.5, y + 0.5)` (the reference samples at integer coordinates).
+- [x] **Depth.** Depth is `z_view` (= clip `w`). Smaller is closer. Clear value is `+∞` (the
+      reference clears to `255`). The depth test passes on strict `<`, so equal depth is rejected
+      (the reference uses `≤`).
+- [x] **Winding.** Front faces are **clockwise as seen from the camera**. The face normal is
+      `cross(v2 - v1, v3 - v1)` and points toward the viewer for front faces (outward on a closed
+      mesh). The viewport's y flip reverses the sign of the screen-space signed area, so pin down
+      which sign front faces get with a test. The reference OBJ assets are probably wound
+      counter-clockwise (OpenGL style); check against the cube OBJ and flip on load if needed.
+- [x] **Terminal cell aspect.** Characters are about 2× taller than wide, so
       `aspect = (width / cell_aspect) / height` with `cell_aspect = 2.0` by default. Make it
       configurable.
-- [ ] **Float tolerance** for tests: `kEps = 1e-5f`. Add `EXPECT_VEC3_NEAR` /
+- [x] **Float tolerance** for tests: `kEps = 1e-5f`. Add `EXPECT_VEC3_NEAR` /
       `EXPECT_MAT44_NEAR` helpers in `test/test_helpers.h`.
 
 ### Known quirks in the reference (do NOT copy blindly)
@@ -73,8 +78,9 @@ separate, unit-testable module.
 | Reference behaviour | Problem | Plan |
 |---|---|---|
 | `Camera.transform` builds rows `[right, up, forward, eye]` and multiplies directly | This is the camera-to-world matrix, not its inverse. Translation is `+eye` instead of `-eye`, and with the default vectors the image is rotated 90°. | Implement a proper `look_at` (step 4) and test it. |
-| `newUp = forward × up` and then `right = newUp × forward` | The names are swapped, which causes the 90° roll above. | `right = normalize(cross(forward, up))`, `up' = cross(right, forward)` |
-| `Object.transform` uses `Rx·Ry·Rz·S·T` | Scale is applied after rotation, which shears when the scale is non-uniform. | Use `S·Rx·Ry·Rz·T` (row-vector order) |
+| `newUp = forward × up` and then `right = newUp × forward` | The names are swapped, which causes the 90° roll above. | Left-handed: `right = normalize(cross(up, forward))`, `up' = cross(forward, right)` |
+| `Object.transform` uses `Rx·Ry·Rz·S·T` | Scale is applied after rotation, which shears when the scale is non-uniform. | Use `T·Rz·Ry·Rx·S` (column-vector order: S applied first) |
+| Row vectors, right-handed, camera looks down `-Z`, `w = -z_view` | Differs from our conventions (section 1). | Transpose reference matrices, negate reference `z` positions, and flip asset winding if needed. |
 | The matrix is rebuilt for **every vertex** | Wastes work. | Build the MVP once per object per frame. |
 | Depth is one value per triangle: `(w1 + w2 + w3) / 3` | Intersecting or large triangles sort incorrectly. | Start with flat depth to match the reference, then interpolate per pixel (step 13). |
 | No near-plane clipping | Vertices behind the camera (`w ≤ 0`) produce garbage. | Add a clipper (step 13). |
@@ -170,10 +176,10 @@ Each step lists its files, the work to do, and the **tests that must pass before
 Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CMakeLists.txt`.
 
 ### Step 0 — Test scaffolding
-- [ ] `test/test_helpers.h`: `kEps`, `EXPECT_VEC2/3/4_NEAR`, `EXPECT_MAT44_NEAR`.
-- [ ] `test/golden/` directory and a `expect_golden(name, actual_string)` helper. On mismatch,
+- [x] `test/test_helpers.h`: `kEps`, `EXPECT_VEC2/3/4_NEAR`, `EXPECT_MAT44_NEAR`.
+- [x] `test/golden/` directory and a `expect_golden(name, actual_string)` helper. On mismatch,
       it writes `<name>.actual.txt` for diffing. Set `ASCII3D_UPDATE_GOLDEN=1` to regenerate.
-- [ ] Optional: add a `ASCII3D_SANITIZE` CMake option (ASan/UBSan) for the Debug + test build.
+- [x] Optional: add a `ASCII3D_SANITIZE` CMake option (ASan/UBSan) for the Debug + test build.
 - **Test:** `make test` stays green with an empty helper test.
 
 ### Step 1 — Math: vectors (`src/math/vector.h`)
@@ -186,14 +192,15 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
   length is 1, normalizing a zero vector gives no NaN), plus `static_assert` checks for constexpr.
 
 ### Step 2 — Math: matrices (`src/math/matrix.h`)
-- [ ] `identity()`, `operator*(Matrix44, Matrix44)`, `transform(Vector4, Matrix44)` (row vector:
-      `v * M`), `transpose`.
-- [ ] Factories: `translate(Vector3)`, `scale(Vector3)`, `rotate_x/y/z(radians)`. Copy the layouts
-      from reference `matrix44.ts`.
+- [ ] `identity()`, `operator*(Matrix44, Matrix44)`, `operator*(Matrix44, Vector4)` (column
+      vector: `M * v`), `transpose`.
+- [ ] Factories: `translate(Vector3)` (translation in column 3), `scale(Vector3)`,
+      `rotate_x/y/z(radians)`. These are the **transposes** of the layouts in reference
+      `matrix44.ts`.
 - [ ] Optional: `inverse()` (affine is enough). It is useful for testing `view_matrix`.
-- **Tests:** identity is neutral; composition order (`translate` then `rotate` differs from
-  `rotate` then `translate`); `rotate_z(π/2)` maps `x̂ → ŷ` in the row-vector convention (pin down
-  the sign); `translate` leaves `w = 0` direction vectors unchanged; `M * inverse(M) ≈ I`.
+- **Tests:** identity is neutral; composition order (`translate(t) * rotate_z(a)` rotates first,
+  and differs from `rotate_z(a) * translate(t)`); `rotate_z(π/2) * x̂ == ŷ` (pin down the sign);
+  `translate` leaves `w = 0` direction vectors unchanged; `M * inverse(M) ≈ I`.
 
 ### Step 3 — Geometry and mesh loading (`src/scene/polygon.h`, `mesh.*`, new `src/io/obj_loader.*`)
 - [ ] `Mesh` with `triangles`, plus an optional `bounds()` that returns an AABB (handy for
@@ -203,16 +210,20 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
       indices, and fan-triangulation of n-gons. Ignore `vn/vt/o/g/s/#/usemtl` for now. Return
       `std::expected` errors for bad indices or malformed lines (include the line number).
 - [ ] Procedural sources: `make_cube()`, `make_torus(R, r, segs, rings)`. This lets you test the
-      pipeline without asset files.
+      pipeline without asset files. Emit triangles clockwise as seen from outside.
+- [ ] `ObjLoader` option to reverse winding (swap `v2`/`v3`), for assets wound counter-clockwise.
 - [ ] Copy the reference OBJ meshes (cube, donut, teapot, ship, rocket, cow) into `assets/*.obj`.
       They are MIT-licensed, so keep the attribution.
 - **Tests:** an inline 1-triangle OBJ parses correctly; a quad gives 2 triangles; `1/2/3` and
   `1//3` index forms work; a bad index returns an error; the cube OBJ has 12 triangles; the cube
-  bounds are [-1, 1]³; the torus triangle count is `2·segs·rings`.
+  bounds are [-1, 1]³; the torus triangle count is `2·segs·rings`; every triangle of the loaded
+  cube OBJ and of `make_cube()` has `cross(v2 - v1, v3 - v1)` pointing outward (positive dot
+  product with its centroid).
 
 ### Step 4 — Model transform (`src/scene/object.*`)
 - [ ] `Object { Mesh mesh; Vector3 position, rotation, scale; Matrix44 model_matrix() const; }`
-      composed as `S · Rx · Ry · Rz · T` (row-vector order).
+      composed as `T · Rz · Ry · Rx · S` (column-vector order: scale, then Rx, Ry, Rz, then
+      translate).
 - [ ] Animation stays **out of** `Object`. Use `std::function<void(Object&, double dt)> update`
       or a separate `Animator` (see step 11).
 - **Tests:** a default object gives the identity matrix; position only translates the origin;
@@ -222,24 +233,24 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
 ### Step 5 — Camera / view transform (`src/scene/camera.*`)
 - [ ] Rename the members to be explicit: `eye`, `target` (the reference uses `look` as the
       target), and `up`.
-- [ ] `view_matrix()` = proper look-at in row-vector form. Compute
-      `f = normalize(target - eye)`, `r = normalize(cross(f, up))`, and `u = cross(r, f)`. The
-      columns are `r`, `u`, and `-f`, and the translation row is
-      `(-dot(r, eye), -dot(u, eye), dot(f, eye))`.
-- **Tests:** `target` maps to `(0, 0, -d)`; `eye` maps to the origin; a point to the camera's
+- [ ] `view_matrix()` = proper left-handed look-at in column-vector form. Compute
+      `f = normalize(target - eye)`, `r = normalize(cross(up, f))`, and `u = cross(f, r)`. The
+      rows are `r`, `u`, and `f`, and the translation column is
+      `(-dot(r, eye), -dot(u, eye), -dot(f, eye))`.
+- **Tests:** `target` maps to `(0, 0, +d)`; `eye` maps to the origin; a point to the camera's
   right has `x > 0` and a point above it has `y > 0` (this test catches the reference's 90° bug);
   `view * inverse(view) ≈ I`.
 
 ### Step 6 — Projection and perspective divide (`src/scene/projection.*`)
-- [ ] `matrix()` as in reference `projection.ts`:
-      `f = 1 / tan(fov / 2)`, `rangeInv = 1 / (near - far)`,
-      rows `[f / aspect, 0, 0, 0]`, `[0, f, 0, 0]`, `[0, 0, (n + f)·rangeInv, -1]`,
-      `[0, 0, 2nf·rangeInv, 0]`.
+- [ ] `matrix()`: left-handed, column-vector perspective with NDC z in [-1, 1]. This differs
+      from reference `projection.ts` (right-handed, row vectors). With `g = 1 / tan(fov / 2)`,
+      near `n` and far `f`, the rows are `[g / aspect, 0, 0, 0]`, `[0, g, 0, 0]`,
+      `[0, 0, (f + n) / (f - n), -2fn / (f - n)]`, `[0, 0, 1, 0]`.
 - [ ] `aspect_for(width, height, cell_aspect = 2.0f)` helper.
 - [ ] A free function `perspective_divide(Vector4 clip) -> Vector3 ndc`, kept separate from the
       matrix so a clipper can run between the two.
 - **Tests:** a point on the near plane gives `z_ndc = -1` and one on the far plane gives `+1`;
-  `w_clip == -z_view`; a point on the frustum's top edge gives `y_ndc = 1`; changing `aspect`
+  `w_clip == z_view`; a point on the frustum's top edge gives `y_ndc = 1`; changing `aspect`
   scales only x.
 
 ### Step 7 — Viewport (`src/render/viewport.h`, new)
@@ -249,15 +260,17 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
   center.
 
 ### Step 8 — Framebuffer and presenter (`src/render/framebuffer.*`, new `src/render/presenter.*`)
-- [ ] `Framebuffer(width, height)`, `clear`, `depth_test_and_set`, `at`, and `to_utf8`. Out of
-      range writes are ignored, not undefined behaviour.
+- [ ] `Framebuffer(width, height)`, `clear` (depth reset to `+∞`), `depth_test_and_set` (passes
+      on strict `<`), `at`, and `to_utf8`. Out of range writes are ignored, not undefined
+      behaviour.
 - [ ] `StringPresenter` captures the frame into a string, for tests.
 - [ ] `TerminalPresenter`: on start, switch to the alternate screen (`\x1b[?1049h`) and hide the
       cursor (`\x1b[?25l`). Each frame, move the cursor home (`\x1b[H`) and write all rows in one
       `fwrite`. On exit or SIGINT, restore the terminal.
 - [ ] `terminal_size()` via `ioctl(TIOCGWINSZ)`, falling back to 80×24.
-- **Tests:** a closer depth wins; a farther depth is rejected; equal depth follows your chosen
-  rule (the reference uses `≤`); out-of-range writes are no-ops; `to_utf8` encodes `'█'` correctly
+- **Tests:** a closer depth wins; a farther depth is rejected; equal depth is rejected (strict
+  `<`; the reference uses `≤`); any finite depth passes after `clear`; out-of-range writes are
+  no-ops; `to_utf8` encodes `'█'` correctly
   and has exactly H lines of W glyphs.
 - **Visual checkpoint:** `ascii3d_demo --test-pattern` fills a gradient with the ramp and
   presents it.
@@ -266,7 +279,7 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
 - [ ] `edge(a, b, p) = (p.x - a.x)(b.y - a.y) - (p.y - a.y)(b.x - a.x)`. This is the reference
       `sign` function.
 - [ ] `BarycentricRasterizer : Rasterizer`. Clamp the bounding box to the viewport, sample each
-      pixel center, accept either winding (as the reference does) or only one, and emit a
+      pixel center `(x + 0.5, y + 0.5)`, accept either winding (as the reference does) or only one, and emit a
       `Fragment` with normalized barycentrics and interpolated depth.
 - [ ] Skip degenerate triangles (area ≈ 0).
 - [ ] `WireframeRasterizer : Rasterizer` (DDA or Bresenham, like the reference `drawLine`) to
@@ -278,9 +291,11 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
   fragment sum to 1; a degenerate triangle emits nothing.
 
 ### Step 10 — Shading (`src/render/shader.*` → `lighting.*` + `glyph_mapper.*`)
-- [ ] `face_normal(a, b, c)`, consistent with the winding decided in section 1.
-- [ ] `LambertLighting : LightingModel` with a configurable `light_dir`. The default is the
-      headlight `(0, 0, 1)` in view space, as in the reference. Add an `ambient` term (default 0
+- [ ] `face_normal(a, b, c) = normalize(cross(b - a, c - a))`, which points toward the viewer
+      for clockwise front faces (section 1).
+- [ ] `LambertLighting : LightingModel` with a configurable `light_dir` (the direction toward the
+      light). The default is the headlight `(0, 0, -1)` in view space, pointing back at the
+      camera; the reference uses `(0, 0, 1)` because it looks down `-Z`. Add an `ambient` term (default 0
       to match the reference). Compute `intensity = clamp(ambient + max(0, n·l), 0, 1)`.
 - [ ] `RampGlyphMapper : GlyphMapper` taking `std::u32string_view`. Look up
       `ramp[round(i · (len - 1))]`. Provide presets `kRampAscii = U".;ox%@"` and
@@ -291,14 +306,15 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
 
 ### Step 11 — Pipeline assembly (`src/render/renderer.*`, new `src/scene/scene.h`)
 - [ ] `Scene { std::vector<Object> objects; }`.
-- [ ] `Renderer::render`: for each object, build `MV = model * view` and `P` once. For each
+- [ ] `Renderer::render`: for each object, build `MV = view * model` and `P` once
+      (so `MVP = P * view * model`). For each
       triangle: transform to view space, cull (optional), compute intensity, project, clip
       (optional), divide, apply the viewport, rasterize, depth-test, map to a glyph, and write.
 - [ ] Depth policy: start with the reference's flat average `w` to get matching output, then add
       a `DepthMode { FlatAverage, Interpolated }` switch.
 - [ ] Keep `Renderer` free of terminal I/O: it writes only to a `Framebuffer`.
 - **Tests (golden):** a single front-facing triangle centered in 20×10 cells; the unit cube at
-  `z = -3` rotated `(0.4, 0.6, 0)` in 40×20 cells with the ASCII ramp; an empty scene gives a blank
+  `z = 3` rotated `(0.4, 0.6, 0)` in 40×20 cells with the ASCII ramp; an empty scene gives a blank
   frame; an object behind the camera gives a blank frame (and no crash). Also test pipeline
   invariants with mock stages: a counting `Rasterizer` is called once per triangle, and a
   `FaceCuller` that rejects everything gives a blank frame.
@@ -314,9 +330,11 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
       terminal resize (SIGWINCH): it reallocates the framebuffer and updates the aspect.
 - [ ] CLI: `--model <name|path.obj>`, `--ramp ascii|blocks|long`, `--fps N`, `--size WxH`,
       `--frames N` (render N frames then exit, which is useful for CI), and `--wireframe`.
-- [ ] Use the reference's default placements: cube `(0.5, 0.5, -3)`, donut `(0, 0.5, -1)`, teapot
-      `(0, 1, -4)`, rocket `(0, 0.5, -2)`, ship `(-0.5, 1, -7)`, cow `(0, 1, -5)`. Adjust these once
-      the camera is fixed, or auto-frame using `Mesh::bounds()`.
+- [ ] Use the reference's default placements with `z` negated for the +Z camera: cube
+      `(0.5, 0.5, 3)`, donut `(0, 0.5, 1)`, teapot `(0, 1, 4)`, rocket `(0, 0.5, 2)`, ship
+      `(-0.5, 1, 7)`, cow `(0, 1, 5)`. Because the camera now views each mesh from its `-Z` side,
+      asymmetric models (teapot, cow) may need a π rotation about y to face the same way as in the
+      reference. Adjust these once the camera is fixed, or auto-frame using `Mesh::bounds()`.
 - **Tests:** `FrameClock` is tested with an injected fake clock; `ascii3d_demo --frames 3 --size
   40x20` exits with code 0 (add it as a ctest).
 
@@ -349,7 +367,8 @@ string presenter used in tests keep working.
 ### Step 13 — Correctness upgrades (each one is a drop-in module)
 - [ ] `BackFaceCuller : FaceCuller` (`dot(normal, -position_view) <= 0` → drop it).
 - [ ] `NearPlaneClipper : Clipper` (Sutherland–Hodgman against `w > near`, giving 0–2 triangles).
-- [ ] Per-pixel depth interpolation (`DepthMode::Interpolated`, perspective-correct with `inv_w`).
+- [ ] Per-pixel depth interpolation (`DepthMode::Interpolated`). Depth is `z_view`, which is not
+      linear in screen space: interpolate `inv_w = 1 / z_view` with the barycentrics and invert it.
 - [ ] Smooth (Gouraud) shading: parse `vn` or compute averaged vertex normals, then interpolate
       intensity per fragment through the barycentrics. Plan for this in `Fragment` and the
       `FragmentSink`.

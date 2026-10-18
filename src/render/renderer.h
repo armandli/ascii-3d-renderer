@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RENDERER_H
+#define RENDERER_H
 
 namespace ascii3d {
 
@@ -9,3 +10,5 @@ class Renderer {
 };
 
 } // namespace ascii3d
+
+#endif  // RENDERER_H

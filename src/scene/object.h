@@ -1,4 +1,5 @@
-#pragma once
+#ifndef OBJECT_H
+#define OBJECT_H
 
 #include "math/matrix.h"
 #include "math/vector.h"
@@ -7,7 +8,8 @@
 namespace ascii3d {
 
 // A mesh placed in the world.
-// TODO: build the model (world) matrix from scale, rotation and position.
+// TODO: model_matrix() = T * Rz * Ry * Rx * S (column vectors: scale first,
+// then rotate about x, y, z, then translate). Rotation is in radians.
 class Object {
 public:
   Mesh mesh;
@@ -17,3 +19,5 @@ public:
 };
 
 } // namespace ascii3d
+
+#endif  // OBJECT_H

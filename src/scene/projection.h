@@ -1,16 +1,22 @@
-#pragma once
+#ifndef PROJECTION_H
+#define PROJECTION_H
 
 #include "math/matrix.h"
 
 namespace ascii3d {
 
-// TODO: build the perspective projection matrix.
+// Left-handed, column-vector perspective projection: clip w = z_view and
+// NDC z in [-1, 1] (near -> -1, far -> +1).
+// TODO: matrix() with g = 1 / tan(fov / 2), rows [g / aspect, 0, 0, 0],
+// [0, g, 0, 0], [0, 0, (f + n) / (f - n), -2fn / (f - n)], [0, 0, 1, 0].
 class Projection {
 public:
-  float fov_degrees = 60.0f;
-  float aspect = 1.0f;
+  float fov_degrees = 60.0f; // the only angle not in radians
+  float aspect = 1.0f;       // (width / cell_aspect) / height, cell_aspect = 2 by default
   float near_plane = 0.1f;
   float far_plane = 100.0f;
 };
 
 } // namespace ascii3d
+
+#endif  // PROJECTION_H

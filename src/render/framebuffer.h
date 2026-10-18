@@ -1,11 +1,14 @@
-#pragma once
+#ifndef FRAMEBUFFER_H
+#define FRAMEBUFFER_H
 
 #include <cstddef>
 #include <vector>
 
 namespace ascii3d {
 
-// Character grid plus depth buffer.
+// Character grid plus depth buffer. Depth is z_view (= clip w): smaller is
+// closer, cleared to +infinity, and a write passes only on strict < (equal
+// depth is rejected).
 // TODO: clear, depth-tested set_pixel, present to the terminal.
 class Framebuffer {
 public:
@@ -16,3 +19,5 @@ public:
 };
 
 } // namespace ascii3d
+
+#endif  // FRAMEBUFFER_H

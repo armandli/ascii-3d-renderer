@@ -4,13 +4,15 @@ BUILD_DIR  ?= build
 BUILD_TYPE ?= Debug
 GENERATOR  ?= $(if $(shell command -v ninja 2>/dev/null),Ninja,Unix Makefiles)
 JOBS       ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
+SANITIZE   ?= OFF
 
 .PHONY: all configure build release test run clean distclean help
 
 all: build
 
 configure:
-	cmake -S . -B $(BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
+	cmake -S . -B $(BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+	      -DASCII3D_SANITIZE=$(SANITIZE)
 
 build: configure
 	cmake --build $(BUILD_DIR) -j $(JOBS)
@@ -38,4 +40,5 @@ help:
 	@echo "  make run            build and run the demo"
 	@echo "  make clean          clean build outputs"
 	@echo "  make distclean      remove all build directories"
-	@echo "Variables: BUILD_DIR, BUILD_TYPE, GENERATOR, JOBS"
+	@echo "  make test BUILD_DIR=build-asan SANITIZE=ON   run tests under ASan + UBSan"
+	@echo "Variables: BUILD_DIR, BUILD_TYPE, GENERATOR, JOBS, SANITIZE"

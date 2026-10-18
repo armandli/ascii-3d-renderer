@@ -7,14 +7,16 @@
 namespace ascii3d::test {
 
 // ---------------------------------------------------------------------------
-// constexpr smoke (compile-time checks; uncomment once implementations land)
+// constexpr smoke (compile-time checks)
 // ---------------------------------------------------------------------------
 
-// static_assert(cross(Vector3{1,0,0}, Vector3{0,1,0}) == Vector3{0,0,1});
-// static_assert(dot(Vector3{1,0,0}, Vector3{0,1,0}) == 0.0f);
-// static_assert(length_squared(Vector3{3,4,0}) == 25.0f);
-// static_assert(xyz(to_vec4(Vector3{1,2,3})) == Vector3{1,2,3});
-// static_assert(to_vec4(Vector3{1,2,3}, 0.0f).w == 0.0f);
+static_assert(cross(Vector3{1,0,0}, Vector3{0,1,0}) == Vector3{0,0,1});
+static_assert(dot(Vector3{1,0,0}, Vector3{0,1,0}) == 0.0f);
+static_assert(length_squared(Vector3{3,4,0}) == 25.0f);
+static_assert(xyz(to_vec4(Vector3{1,2,3})) == Vector3{1,2,3});
+static_assert(to_vec4(Vector3{1,2,3}, 0.0f).w == 0.0f);
+static_assert(Vector3{1,2,3} + Vector3{1,1,1} == Vector3{2,3,4});
+static_assert(-Vector4{1,2,3,4} == Vector4{-1,-2,-3,-4});
 
 // ---------------------------------------------------------------------------
 // Vector2
@@ -80,6 +82,19 @@ TEST(Vector3, DotCrossOrthogonality) {
     EXPECT_NEAR(dot(b, cross(a, b)), 0.0f, kEps);
 }
 
+TEST(Vector3, ClockwiseFrontFaceNormalPointsAtCamera) {
+    // Left-handed view space, camera at the origin looking down +Z (x right,
+    // y up). Seen from the camera, v1 -> v2 -> v3 runs bottom-left -> top ->
+    // right: clockwise, i.e. a front face. Its normal must point back at the
+    // camera (-Z).
+    const Vector3 v1{0.0f, 0.0f, 5.0f};
+    const Vector3 v2{0.0f, 1.0f, 5.0f};
+    const Vector3 v3{1.0f, 0.0f, 5.0f};
+    const Vector3 n = normalize(cross(v2 - v1, v3 - v1));
+    EXPECT_VEC3_NEAR(n, (Vector3{0, 0, -1}), kEps);
+    EXPECT_GT(dot(n, -v1), 0.0f); // faces the viewer
+}
+
 TEST(Vector3, DotProduct) {
     EXPECT_NEAR(dot(Vector3{1,0,0}, Vector3{0,1,0}), 0.0f, kEps);
     EXPECT_NEAR(dot(Vector3{1,0,0}, Vector3{1,0,0}), 1.0f, kEps);
@@ -128,7 +143,10 @@ TEST(Vector4, NormalizeZeroVector) {
     const Vector4 zero{0, 0, 0, 0};
     const Vector4 result = normalize(zero);
     EXPECT_FALSE(std::isnan(result.x));
+    EXPECT_FALSE(std::isnan(result.y));
+    EXPECT_FALSE(std::isnan(result.z));
     EXPECT_FALSE(std::isnan(result.w));
+    EXPECT_VEC4_NEAR(result, zero, kEps);
 }
 
 // ---------------------------------------------------------------------------
