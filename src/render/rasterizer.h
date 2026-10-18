@@ -9,9 +9,8 @@ namespace ascii3d {
 // Screen space: x in [0, W) right, y in [0, H) down; sample at pixel centers
 // (x + 0.5, y + 0.5). The viewport's y flip reverses the sign of the signed
 // area, so clockwise front faces have the opposite edge-function sign here.
-class Rasterizer {
-};
+struct Rasterizer {};
 
-} // namespace ascii3d
+}  // namespace ascii3d
 
 #endif  // RASTERIZER_H

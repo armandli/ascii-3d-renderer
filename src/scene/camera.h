@@ -1,8 +1,8 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include "math/matrix.h"
-#include "math/vector.h"
+#include <math/matrix.h>
+#include <math/vector.h>
 
 namespace ascii3d {
 
@@ -11,13 +11,13 @@ namespace ascii3d {
 // TODO: view_matrix() with f = normalize(target - eye),
 // r = normalize(cross(up, f)), u = cross(f, r); rows r, u, f and
 // translation column (-dot(r, eye), -dot(u, eye), -dot(f, eye)).
-class Camera {
-public:
+struct Camera {
   Vector3 eye{0.0f, 0.0f, -5.0f};
-  Vector3 target{0.0f, 0.0f, 0.0f}; // point looked at (the reference calls it `look`)
+  // A point, not a direction (the reference calls it `look`).
+  Vector3 target{0.0f, 0.0f, 0.0f};
   Vector3 up{0.0f, 1.0f, 0.0f};
 };
 
-} // namespace ascii3d
+}  // namespace ascii3d
 
 #endif  // CAMERA_H

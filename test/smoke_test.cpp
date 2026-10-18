@@ -1,8 +1,8 @@
-#include "render/renderer.h"
-#include "render/shader.h"
-#include "scene/object.h"
-
 #include <gtest/gtest.h>
+
+#include <render/renderer.h>
+#include <render/shader.h>
+#include <scene/object.h>
 
 TEST(Smoke, StubsCompileAndLink) {
   ascii3d::Object object;

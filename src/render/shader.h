@@ -10,11 +10,10 @@ namespace ascii3d {
 // TODO: face normal normalize(cross(b - a, c - a)) (toward the viewer for
 // clockwise front faces), Lambert term with the default headlight (0, 0, -1)
 // in view space (direction toward the light), ramp lookup.
-class Shader {
-public:
+struct Shader {
   std::string_view ramp = ".;ox%@";
 };
 
-} // namespace ascii3d
+}  // namespace ascii3d
 
 #endif  // SHADER_H
