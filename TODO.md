@@ -380,11 +380,11 @@ Use one test file per module (`test/<module>_test.cpp`) and add each to `test/CM
 
 ### Step 1 — Math: vectors (`src/math/vector.h`)
 **Concepts:** §0.2 homogeneous coordinates; §0.3 normals via `cross`; §0.6 Lambert via `dot`.
-- [ ] `operator+ - *(scalar) /(scalar)`, unary `-`, `==` for Vector2/3/4.
-- [ ] `dot`, `cross` (Vector3), `length`, `length_squared`, `normalize`. Decide how to handle a
+- [x] `operator+ - *(scalar) /(scalar)`, unary `-`, `==` for Vector2/3/4.
+- [x] `dot`, `cross` (Vector3), `length`, `length_squared`, `normalize`. Decide how to handle a
       zero-length vector: return a zero vector, never NaN.
-- [ ] `Vector4 to_vec4(Vector3, float w = 1)`, `Vector3 xyz(Vector4)`.
-- [ ] Mark everything `constexpr` / `[[nodiscard]]` where possible.
+- [x] `Vector4 to_vec4(Vector3, float w = 1)`, `Vector3 xyz(Vector4)`.
+- [x] Mark everything `constexpr` / `[[nodiscard]]` where possible.
 - **Tests:** algebraic identities (`cross(x̂, ŷ) == ẑ`, `dot(a, cross(a, b)) == 0`, normalized
   length is 1, normalizing a zero vector gives no NaN), plus `static_assert` checks for constexpr.
 
