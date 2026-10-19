@@ -21,6 +21,7 @@ add_executable(ascii3d_tests
   smoke_test.cpp
   helpers_test.cpp
   vector_test.cpp
+  matrix_test.cpp
 )
 target_link_libraries(ascii3d_tests PRIVATE ascii3d ascii3d_warnings GTest::gtest_main)
 target_include_directories(ascii3d_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
